@@ -195,6 +195,17 @@ function init(data) {
   // Assign colors to teachers
   data.teachers.forEach((t, i) => { TEACHER_COLORS[t.name] = COLORS[i % COLORS.length]; });
 
+  // Auto-detect current week from today's date
+  const now = new Date();
+  const todayStr = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}`;
+  for (let w = 1; w <= data.meta.weeks; w++) {
+    const wd = data.meta.week_dates[w];
+    if (wd && todayStr >= wd.start && todayStr <= wd.end) {
+      activeWeek = w;
+      break;
+    }
+  }
+
   // Header meta
   document.getElementById('headerMeta').innerHTML =
     `${data.meta.department}<br>${data.meta.semester} | ${data.meta.sem_start} — ${data.meta.sem_end}`;
@@ -216,6 +227,7 @@ function buildWeekSelect() {
     opt.textContent = `Неделя ${w} (${d.start} — ${d.end})`;
     sel.appendChild(opt);
   }
+  if (activeWeek) sel.value = activeWeek;
   sel.addEventListener('change', () => { activeWeek = sel.value === 'all' ? null : parseInt(sel.value); render(); });
 }
 
@@ -333,10 +345,13 @@ function buildWeekBar() {
   bar.innerHTML = '<span style="font-weight:600;font-size:0.85em;">Быстрый выбор:</span>';
   for (let w = 1; w <= DATA.meta.weeks; w++) {
     const btn = document.createElement('span');
-    btn.className = 'week-btn'; btn.textContent = w;
+    btn.className = 'week-btn' + (activeWeek === w ? ' active' : '');
+    btn.textContent = w;
     btn.addEventListener('click', () => {
       activeWeek = activeWeek === w ? null : w;
       document.getElementById('weekSelect').value = activeWeek || 'all';
+      document.querySelectorAll('.week-btn').forEach(b => b.classList.remove('active'));
+      if (activeWeek) btn.classList.add('active');
       render();
     });
     bar.appendChild(btn);
@@ -355,16 +370,7 @@ function buildLegend() {
 
 function getWeekEntries() {
   if (!activeWeek) return DATA.schedule;
-  // Filter by week: check course_weeks
-  return DATA.schedule.filter(entry => {
-    const courseKey = Object.keys(DATA.course_weeks).find(k => {
-      const parts = k.split('_');
-      return entry.course.includes(parts[0].replace('ИГВ','ИГВ').replace('ИГД','ИГД').replace('ИГП','ИГП'));
-    });
-    if (!courseKey) return true;
-    const weeks = DATA.course_weeks[courseKey];
-    return weeks.includes(activeWeek);
-  });
+  return DATA.schedule.filter(entry => entry.weeks && entry.weeks.includes(activeWeek));
 }
 
 function getFiltered() {
@@ -443,6 +449,7 @@ function applyUrlParams() {
   if (params.has('week')) {
     activeWeek = parseInt(params.get('week'));
     document.getElementById('weekSelect').value = activeWeek;
+    document.querySelectorAll('.week-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === activeWeek));
   }
   syncChips(); syncSelects();
 }
