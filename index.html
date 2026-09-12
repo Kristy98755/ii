@@ -386,18 +386,33 @@ function render() {
     html += `<tr><td class="time-cell">${slot.num} пара<br><small>${slot.start}–${slot.end}</small></td>`;
     DAYS.forEach(day => {
       const cellEntries = entries.filter(e => e.day === day && e.slot === slot.num);
-      html += `<td>`;
+      // Group by teacher+room for merged display
+      const grouped = {};
       cellEntries.forEach(e => {
-        const color = TEACHER_COLORS[e.teacher] || '#999';
-        const courseLabel = e.course.replace(/_/g, ' ');
-        const hasIssues = e.issues && e.issues.length > 0;
-        const issueClass = hasIssues ? ' has-issues' : '';
-        const issueBadge = hasIssues ? `<span class="issue-badge" title="${e.issues.map(i=>'нед.'+i.week+': '+i.reason).join('\n')}">⚠ ${e.issues.length}</span>` : '';
-        const tooltip = hasIssues ? `<div class="issue-tooltip">${e.issues.map(i=>'нед.'+i.week+': '+i.reason).join('<br>')}</div>` : '';
-        html += `<div class="cell-entry${issueClass}" style="border-left-color:${color}" onclick="openFiltered('${e.teacher}','${e.classroom}','${e.group}')" title="${e.teacher} | ${e.classroom} | ${e.group} (${courseLabel})">`;
-        html += `<div class="teacher" style="color:${color}">${e.teacher}${issueBadge}</div>`;
-        html += `<div class="room">${e.classroom}</div>`;
-        html += `<div class="group">${e.group} <span style="color:var(--text-muted)">${courseLabel}</span></div>`;
+        const gk = `${e.teacher}|||${e.classroom}`;
+        if (!grouped[gk]) grouped[gk] = { teacher: e.teacher, room: e.classroom, groups: [], hasIssues: false, issues: [] };
+        grouped[gk].groups.push(e);
+        if (e.issues && e.issues.length > 0) {
+          grouped[gk].hasIssues = true;
+          grouped[gk].issues.push(...e.issues);
+        }
+      });
+      html += `<td>`;
+      Object.values(grouped).forEach(g => {
+        const color = TEACHER_COLORS[g.teacher] || '#999';
+        const issueClass = g.hasIssues ? ' has-issues' : '';
+        const issueBadge = g.hasIssues ? `<span class="issue-badge" title="${g.issues.map(i=>'нед.'+i.weeks.join(',')+': '+i.reason).join('\n')}">⚠</span>` : '';
+        const tooltip = g.hasIssues ? `<div class="issue-tooltip">${g.issues.map(i=>'нед.'+i.weeks.join(',')+': '+i.reason).join('<br>')}</div>` : '';
+        const firstGroup = g.groups[0];
+        const groupsList = g.groups.map(e => {
+          const cl = e.course.replace(/_/g, ' ');
+          return `<span style="display:block;font-size:0.82em">${e.group} <span style="color:var(--text-muted)">${cl}</span></span>`;
+        }).join('');
+        const title = g.groups.map(e => e.group).join(', ');
+        html += `<div class="cell-entry${issueClass}" style="border-left-color:${color}" onclick="openFiltered('${g.teacher}','${g.room}','${title}')" title="${g.teacher} | ${g.room} | ${title}">`;
+        html += `<div class="teacher" style="color:${color}">${g.teacher}${issueBadge}</div>`;
+        html += `<div class="room">${g.room}</div>`;
+        html += `<div class="group">${groupsList}</div>`;
         html += tooltip;
         html += `</div>`;
       });

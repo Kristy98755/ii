@@ -100,6 +100,42 @@ def main():
         if e['group'] not in group_course:
             group_course[e['group']] = e['course']
 
+    # FIX: только 4 проблемных конфликта аудиторий
+    # Пн п1: ИГД-3 и ИГП1 обе в Ук108 → ИГП1 → Ук104
+    # Пт п1: ИГД-1 и ИГП11 обе в Ук105 → ИГП11 → Ук104
+    for e in raw:
+        if e['group'] == 'ИГП1' and e['day'] == 'Понедельник' and e['slot'] == 1:
+            e['classroom'] = 'Ук104'
+        elif e['group'] == 'ИГП11' and e['day'] == 'Пятница' and e['slot'] == 1:
+            e['classroom'] = 'Ук104'
+
+    # ОБЪЕДИНЕНИЯ:.group → .teacher + .classroom
+    # Вт п1: ИГВ19+ИГВ20 → Акбалаева в ЗБВ, ИГД-1 → Маманова в Ук105
+    # Ср п2: ИГВ23+ИГВ24 → Ысламов в Ук109
+    # Чт п1: ИГВ27+ИГВ28 → Маманова в Ук105, ИГП16 → Апазбекова в Ук104
+    fixes = {
+        ('ИГВ19', 'Вторник', 1): {'teacher': 'Акбалаева', 'classroom': 'ЗБВ'},
+        ('ИГВ20', 'Вторник', 1): {'teacher': 'Акбалаева', 'classroom': 'ЗБВ'},
+        ('ИГД-1', 'Вторник', 1): {'teacher': 'Маманова', 'classroom': 'Ук105'},
+        ('ИГД-1', 'Пятница', 1): {'teacher': 'Маманова', 'classroom': 'Ук105'},
+        ('ИГП4', 'Вторник', 1):  {'teacher': 'Апазбекова', 'classroom': 'Ук108'},
+        ('ИГВ23', 'Среда', 2):   {'teacher': 'Ысламов', 'classroom': 'Ук109'},
+        ('ИГВ24', 'Среда', 2):   {'teacher': 'Ысламов', 'classroom': 'Ук109'},
+        ('ИГВ27', 'Четверг', 1): {'teacher': 'Маманова', 'classroom': 'Ук105'},
+        ('ИГВ28', 'Четверг', 1): {'teacher': 'Маманова', 'classroom': 'Ук105'},
+        ('ИГП16', 'Четверг', 1): {'teacher': 'Апазбекова', 'classroom': 'Ук104'},
+        ('ИГП6', 'Среда', 2):    {'teacher': 'Полотова', 'classroom': 'Ук105'},
+        ('ИГВ30', 'Четверг', 3): {'teacher': 'Туратбек к', 'classroom': 'Ук105'},
+        ('ИГП8', 'Четверг', 3):  {'teacher': 'Апазбекова', 'classroom': 'Ук108'},
+        ('ИГД-2', 'Четверг', 3): {'teacher': 'Полотова', 'classroom': 'Ук104'},
+    }
+    for e in raw:
+        key = (e['group'], e['day'], e['slot'])
+        if key in fixes:
+            for fld, val in fixes[key].items():
+                e[fld] = val
+            e['fixed'] = True  # mark as manually fixed
+
     # Attach weeks to each entry
     for e in raw:
         for k,w in kp_weeks.items():
@@ -171,6 +207,11 @@ def main():
         for (day,slot), entries in slots.items():
             available = avail[(day,slot)]
 
+            # Skip fixed entries - they already have teachers assigned
+            entries = [e for e in entries if not e.get('fixed')]
+            if not entries:
+                continue
+
             # Check which groups can share a teacher (same room, КП matches)
             # Group by room
             room_groups = defaultdict(list)
@@ -206,6 +247,8 @@ def main():
 
     # Merge teacher assignments
     for e in raw:
+        if e.get('fixed'):
+            continue  # skip fixed entries
         eid = id(e)
         week_teachers = entry_week_teacher.get(eid, {})
         teacher_count = defaultdict(int)
