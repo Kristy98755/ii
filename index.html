@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Кафедра лучевой диагностики — Расписание</title>
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --border: #dfe6e9;
+    --accent: #0984e3;
+    --accent-light: #74b9ff;
+    --text: #2d3436;
+    --text-muted: #636e72;
+    --green: #00b894;
+    --orange: #fdcb6e;
+    --red: #d63031;
+    --purple: #6c5ce7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); }
+
+  header {
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    color: white; padding: 20px 30px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  header h1 { font-size: 1.3em; font-weight: 600; }
+  header .meta { font-size: 0.85em; opacity: 0.9; }
+
+  .controls {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 14px 30px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+  }
+  .controls label { font-weight: 600; font-size: 0.85em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .controls select, .controls button {
+    padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.9em; background: white; cursor: pointer;
+  }
+  .controls select:focus { outline: 2px solid var(--accent); }
+
+  .filter-section {
+    padding: 12px 30px; background: var(--card); border-bottom: 1px solid var(--border);
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-group h3 { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .filter-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    padding: 3px 10px; border-radius: 14px; font-size: 0.78em; cursor: pointer;
+    border: 1.5px solid var(--border); background: white; transition: all 0.15s;
+    user-select: none;
+  }
+  .chip.active { border-color: var(--accent); background: var(--accent); color: white; }
+  .chip:hover { border-color: var(--accent-light); }
+
+  .week-bar {
+    padding: 10px 30px; background: var(--card); border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .week-btn {
+    padding: 4px 10px; border-radius: 4px; font-size: 0.8em; cursor: pointer;
+    border: 1px solid var(--border); background: white; transition: all 0.15s;
+  }
+  .week-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .week-btn:hover { border-color: var(--accent-light); }
+
+  .schedule-wrap { padding: 20px 30px; overflow-x: auto; }
+
+  table.schedule {
+    width: 100%; border-collapse: collapse; background: var(--card);
+    border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  table.schedule th {
+    background: var(--accent); color: white; padding: 10px 8px;
+    font-size: 0.82em; font-weight: 600; text-align: center;
+    position: sticky; top: 0; z-index: 2;
+  }
+  table.schedule th.corner { background: var(--purple); }
+  table.schedule td {
+    border: 1px solid var(--border); padding: 6px 8px; vertical-align: top;
+    min-width: 140px; height: 70px; font-size: 0.82em;
+    transition: background 0.15s;
+  }
+  table.schedule td:hover { background: #f0f4ff; }
+  table.schedule td.time-cell {
+    background: #f8f9fa; font-weight: 600; text-align: center;
+    min-width: 90px; white-space: nowrap; vertical-align: middle;
+  }
+  table.schedule td.day-header { background: #f8f9fa; font-weight: 600; text-align: center; }
+
+  .cell-entry {
+    background: #e8f4fd; border-left: 3px solid var(--accent);
+    padding: 4px 6px; margin-bottom: 4px; border-radius: 3px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .cell-entry:hover { background: #d0e8fa; transform: translateX(2px); }
+  .cell-entry .teacher { font-weight: 600; color: var(--accent); font-size: 0.9em; }
+  .cell-entry .room { color: var(--text-muted); font-size: 0.82em; }
+  .cell-entry .group { color: var(--text); font-size: 0.82em; }
+
+  .cell-entry.has-issues {
+    border-left-color: var(--red) !important;
+    background: #ffeef0;
+  }
+  .cell-entry.has-issues:hover { background: #fdd; }
+  .issue-badge {
+    display: inline-block; background: var(--red); color: white;
+    font-size: 0.7em; padding: 1px 5px; border-radius: 8px; margin-left: 4px;
+    cursor: help;
+  }
+  .issue-tooltip {
+    display: none; position: absolute; z-index: 100;
+    background: #333; color: white; padding: 8px 12px; border-radius: 6px;
+    font-size: 0.78em; max-width: 300px; line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .cell-entry.has-issues:hover .issue-tooltip { display: block; }
+
+  .hidden { display: none !important; }
+
+  .legend {
+    padding: 10px 30px; font-size: 0.78em; color: var(--text-muted);
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    header, .controls, .filter-section, .week-bar, .schedule-wrap, .legend { padding-left: 14px; padding-right: 14px; }
+    table.schedule td { min-width: 100px; height: 60px; font-size: 0.75em; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Кафедра лучевой диагностики</h1>
+    <div class="meta">Расписание на осенний семестр 2026/2027</div>
+  </div>
+  <div class="meta" id="headerMeta"></div>
+</header>
+
+<div class="controls">
+  <div>
+    <label>Неделя</label><br>
+    <select id="weekSelect"></select>
+  </div>
+  <div>
+    <label>Преподаватель</label><br>
+    <select id="teacherFilterSingle">
+      <option value="">Все</option>
+    </select>
+  </div>
+  <div>
+    <label>Аудитория</label><br>
+    <select id="roomFilterSingle">
+      <option value="">Все</option>
+    </select>
+  </div>
+  <div>
+    <label>Группа</label><br>
+    <select id="groupFilterSingle">
+      <option value="">Все</option>
+    </select>
+  </div>
+  <div style="align-self: flex-end;">
+    <button onclick="resetFilters()" style="background:var(--red);color:white;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;">Сбросить фильтры</button>
+  </div>
+</div>
+
+<div class="filter-section" id="filterChips"></div>
+
+<div class="week-bar" id="weekBar"></div>
+
+<div class="legend" id="legend"></div>
+
+<div class="schedule-wrap">
+  <table class="schedule" id="scheduleTable"></table>
+</div>
+
+<script>
+let DATA = null;
+let activeWeek = null;
+let filterState = { teachers: new Set(), rooms: new Set(), groups: new Set() };
+const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+const TEACHER_COLORS = {};
+const COLORS = ['#0984e3','#00b894','#e17055','#6c5ce7','#fdcb6e','#d63031','#00cec9','#fab1a0'];
+
+function init(data) {
+  DATA = data;
+
+  // Assign colors to teachers
+  data.teachers.forEach((t, i) => { TEACHER_COLORS[t.name] = COLORS[i % COLORS.length]; });
+
+  // Header meta
+  document.getElementById('headerMeta').innerHTML =
+    `${data.meta.department}<br>${data.meta.semester} | ${data.meta.sem_start} — ${data.meta.sem_end}`;
+
+  buildWeekSelect();
+  buildFilters();
+  buildWeekBar();
+  buildLegend();
+  render();
+}
+
+function buildWeekSelect() {
+  const sel = document.getElementById('weekSelect');
+  sel.innerHTML = '<option value="all">Все недели</option>';
+  for (let w = 1; w <= DATA.meta.weeks; w++) {
+    const d = DATA.meta.week_dates[w];
+    const opt = document.createElement('option');
+    opt.value = w;
+    opt.textContent = `Неделя ${w} (${d.start} — ${d.end})`;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', () => { activeWeek = sel.value === 'all' ? null : parseInt(sel.value); render(); });
+}
+
+function buildFilters() {
+  // Single selects
+  const ts = document.getElementById('teacherFilterSingle');
+  DATA.teachers.forEach(t => {
+    const o = document.createElement('option'); o.value = t.name; o.textContent = t.name;
+    ts.appendChild(o);
+  });
+  ts.addEventListener('change', () => {
+    filterState.teachers.clear();
+    if (ts.value) filterState.teachers.add(ts.value);
+    syncChips(); render();
+  });
+
+  const rs = document.getElementById('roomFilterSingle');
+  DATA.classrooms.forEach(r => {
+    const o = document.createElement('option'); o.value = r; o.textContent = r;
+    rs.appendChild(o);
+  });
+  rs.addEventListener('change', () => {
+    filterState.rooms.clear();
+    if (rs.value) filterState.rooms.add(rs.value);
+    syncChips(); render();
+  });
+
+  const gs = document.getElementById('groupFilterSingle');
+  const allGroups = [...new Set(DATA.schedule.map(e => e.group))].sort();
+  allGroups.forEach(g => {
+    const o = document.createElement('option'); o.value = g; o.textContent = g;
+    gs.appendChild(o);
+  });
+  gs.addEventListener('change', () => {
+    filterState.groups.clear();
+    if (gs.value) filterState.groups.add(gs.value);
+    syncChips(); render();
+  });
+
+  // Chips
+  const container = document.getElementById('filterChips');
+  container.innerHTML = '';
+
+  // Teachers chips
+  const tg = document.createElement('div'); tg.className = 'filter-group';
+  tg.innerHTML = '<h3>Преподаватели</h3>';
+  const tc = document.createElement('div'); tc.className = 'filter-chips';
+  DATA.teachers.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'chip'; chip.textContent = t.name; chip.dataset.type = 'teacher'; chip.dataset.value = t.name;
+    chip.style.borderColor = TEACHER_COLORS[t.name];
+    chip.addEventListener('click', () => toggleFilter('teachers', t.name, chip));
+    tc.appendChild(chip);
+  });
+  tg.appendChild(tc); container.appendChild(tg);
+
+  // Rooms chips
+  const rg = document.createElement('div'); rg.className = 'filter-group';
+  rg.innerHTML = '<h3>Аудитории</h3>';
+  const rc = document.createElement('div'); rc.className = 'filter-chips';
+  DATA.classrooms.forEach(r => {
+    const chip = document.createElement('span');
+    chip.className = 'chip'; chip.textContent = r; chip.dataset.type = 'room'; chip.dataset.value = r;
+    chip.addEventListener('click', () => toggleFilter('rooms', r, chip));
+    rc.appendChild(chip);
+  });
+  rg.appendChild(rc); container.appendChild(rg);
+
+  // Groups chips
+  const gg = document.createElement('div'); gg.className = 'filter-group';
+  gg.innerHTML = '<h3>Группы</h3>';
+  const gc = document.createElement('div'); gc.className = 'filter-chips';
+  const uniqueGroups = [...new Set(DATA.schedule.map(e => e.group))].sort();
+  uniqueGroups.forEach(g => {
+    const chip = document.createElement('span');
+    chip.className = 'chip'; chip.textContent = g; chip.dataset.type = 'group'; chip.dataset.value = g;
+    chip.addEventListener('click', () => toggleFilter('groups', g, chip));
+    gc.appendChild(chip);
+  });
+  gg.appendChild(gc); container.appendChild(gg);
+}
+
+function toggleFilter(type, value, chipEl) {
+  if (filterState[type].has(value)) {
+    filterState[type].delete(value);
+    chipEl.classList.remove('active');
+  } else {
+    filterState[type].add(value);
+    chipEl.classList.add('active');
+  }
+  syncSelects();
+  render();
+}
+
+function syncChips() {
+  document.querySelectorAll('.chip').forEach(c => {
+    const type = c.dataset.type === 'teacher' ? 'teachers' : c.dataset.type === 'room' ? 'rooms' : 'groups';
+    c.classList.toggle('active', filterState[type].has(c.dataset.value));
+  });
+}
+
+function syncSelects() {
+  document.getElementById('teacherFilterSingle').value = filterState.teachers.size === 1 ? [...filterState.teachers][0] : '';
+  document.getElementById('roomFilterSingle').value = filterState.rooms.size === 1 ? [...filterState.rooms][0] : '';
+  document.getElementById('groupFilterSingle').value = filterState.groups.size === 1 ? [...filterState.groups][0] : '';
+}
+
+function resetFilters() {
+  filterState = { teachers: new Set(), rooms: new Set(), groups: new Set() };
+  syncChips(); syncSelects(); render();
+}
+
+function buildWeekBar() {
+  const bar = document.getElementById('weekBar');
+  bar.innerHTML = '<span style="font-weight:600;font-size:0.85em;">Быстрый выбор:</span>';
+  for (let w = 1; w <= DATA.meta.weeks; w++) {
+    const btn = document.createElement('span');
+    btn.className = 'week-btn'; btn.textContent = w;
+    btn.addEventListener('click', () => {
+      activeWeek = activeWeek === w ? null : w;
+      document.getElementById('weekSelect').value = activeWeek || 'all';
+      render();
+    });
+    bar.appendChild(btn);
+  }
+}
+
+function buildLegend() {
+  const leg = document.getElementById('legend');
+  leg.innerHTML = '<span style="font-weight:600;">Легенда:</span>';
+  DATA.teachers.forEach(t => {
+    const item = document.createElement('span'); item.className = 'legend-item';
+    item.innerHTML = `<span class="legend-dot" style="background:${TEACHER_COLORS[t.name]}"></span>${t.name}`;
+    leg.appendChild(item);
+  });
+}
+
+function getWeekEntries() {
+  if (!activeWeek) return DATA.schedule;
+  // Filter by week: check course_weeks
+  return DATA.schedule.filter(entry => {
+    const courseKey = Object.keys(DATA.course_weeks).find(k => {
+      const parts = k.split('_');
+      return entry.course.includes(parts[0].replace('ИГВ','ИГВ').replace('ИГД','ИГД').replace('ИГП','ИГП'));
+    });
+    if (!courseKey) return true;
+    const weeks = DATA.course_weeks[courseKey];
+    return weeks.includes(activeWeek);
+  });
+}
+
+function getFiltered() {
+  let entries = getWeekEntries();
+  if (filterState.teachers.size > 0) entries = entries.filter(e => filterState.teachers.has(e.teacher));
+  if (filterState.rooms.size > 0) entries = entries.filter(e => filterState.rooms.has(e.classroom));
+  if (filterState.groups.size > 0) entries = entries.filter(e => filterState.groups.has(e.group));
+  return entries;
+}
+
+function render() {
+  const entries = getFiltered();
+  const table = document.getElementById('scheduleTable');
+  let html = '<thead><tr><th class="corner">Пара / День</th>';
+  DAYS.forEach(d => { html += `<th>${d}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  DATA.time_slots.forEach(slot => {
+    html += `<tr><td class="time-cell">${slot.num} пара<br><small>${slot.start}–${slot.end}</small></td>`;
+    DAYS.forEach(day => {
+      const cellEntries = entries.filter(e => e.day === day && e.slot === slot.num);
+      html += `<td>`;
+      cellEntries.forEach(e => {
+        const color = TEACHER_COLORS[e.teacher] || '#999';
+        const courseLabel = e.course.replace(/_/g, ' ');
+        const hasIssues = e.issues && e.issues.length > 0;
+        const issueClass = hasIssues ? ' has-issues' : '';
+        const issueBadge = hasIssues ? `<span class="issue-badge" title="${e.issues.map(i=>'нед.'+i.week+': '+i.reason).join('\n')}">⚠ ${e.issues.length}</span>` : '';
+        const tooltip = hasIssues ? `<div class="issue-tooltip">${e.issues.map(i=>'нед.'+i.week+': '+i.reason).join('<br>')}</div>` : '';
+        html += `<div class="cell-entry${issueClass}" style="border-left-color:${color}" onclick="openFiltered('${e.teacher}','${e.classroom}','${e.group}')" title="${e.teacher} | ${e.classroom} | ${e.group} (${courseLabel})">`;
+        html += `<div class="teacher" style="color:${color}">${e.teacher}${issueBadge}</div>`;
+        html += `<div class="room">${e.classroom}</div>`;
+        html += `<div class="group">${e.group} <span style="color:var(--text-muted)">${courseLabel}</span></div>`;
+        html += tooltip;
+        html += `</div>`;
+      });
+      html += `</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function openFiltered(teacher, room, group) {
+  const params = new URLSearchParams();
+  params.set('teacher', teacher);
+  params.set('room', room);
+  params.set('group', group);
+  if (activeWeek) params.set('week', activeWeek);
+  window.open('?' + params.toString(), '_blank');
+}
+
+// On load: check URL params for pre-filtering
+function applyUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('teacher')) filterState.teachers.add(params.get('teacher'));
+  if (params.has('room')) filterState.rooms.add(params.get('room'));
+  if (params.has('group')) filterState.groups.add(params.get('group'));
+  if (params.has('week')) {
+    activeWeek = parseInt(params.get('week'));
+    document.getElementById('weekSelect').value = activeWeek;
+  }
+  syncChips(); syncSelects();
+}
+
+// Load data
+fetch('./schedule_data.json')
+  .then(r => r.json())
+  .then(data => {
+    init(data);
+    applyUrlParams();
+    render();
+  })
+  .catch(err => {
+    document.body.innerHTML = `<div style="padding:40px;color:red;">Ошибка загрузки данных: ${err.message}<br>Убедитесь, что schedule_data.json в той же папке.</div>`;
+  });
+</script>
+</body>
+</html>
